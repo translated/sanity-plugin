@@ -53,6 +53,7 @@ export default defineConfig({
               env: 'staging',
               apiKey: 'TOS_API_KEY',
               supportedLanguages: languages,
+              customBlockTypes: ['myblock'],
             })
           ])
         }
@@ -72,6 +73,8 @@ The function takes the following options:
 - `apiKey` - your API key for the above TOS API environment
 - `supportedLanguages` - the list of languages to be supported by the TOS plugin, the array has the same structure of the one used
   in the document internationalization plugin.
+- `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block` type (see
+  below for details).
 
 ## TOS plugin options in Sanity Studio's schema
 
@@ -112,10 +115,143 @@ While inspecting the document JSON structure, the plugin will also exclude the S
 
 ### Block content
 
-The `block` field type is highly customizable and can be redefined in the project schema. The plugin supports the following block
-features:
+The `block` field type is used in Sanity to represent Rich Text content. A rich text field is defined as an array of `block`
+objects. Each object uses a [JSON representation](https://www.sanity.io/docs/block-type) to express the formatting and styling of
+the text.
 
-- bold, italic, underline, strikethrough, code and link spans
+To offer translators a better context, the plugin will send the rich text fields content transforming the array of block objects
+into HTML where each object generally corresponds to a structural unit (paragraph, heading, list item, etc.).
+
+The block type is highly customizable and can be redefined in the project schema in multiple ways. As we cannot support all the
+possible combinations here are the supported block features:
+
+- bold, italic, underline, strikethrough and code spans
 - headings and blockquote styles
 - bullet and numbered lists
 - references to images
+- links with generic metadata (see below for details)
+
+### Custom block types
+
+If you redefine the rich text type in your schema, you'll have to specify the custom block type names in the plugin configuration.
+
+For example, if you have the following rich text type definition:
+
+```typescript
+export default defineType({
+  name: 'myrichtext',
+  title: 'My Rich Text Content',
+  type: 'array',
+  of: [
+    defineArrayMember({
+      name: 'myblock',
+      title: 'My Block',
+      type: 'block',
+      styles: [
+        {title: 'Normal', value: 'normal'},
+        {title: 'H1', value: 'h1'},
+      ],
+      marks: {
+        decorators: [
+            {title: 'Code', value: 'code'}
+        ],
+      },
+    }),
+  ],
+})
+```
+
+Fields of type `myrichtext` will have the following structure in JSON:
+
+```json
+{
+  "_createdAt": "2025-01-16T13:48:35Z",
+  "_id": "drafts.cc28b1ec-8340-41ae-a820-3cd3e4f6038c",
+  "_rev": "b464c3da-548a-4402-a2a0-be29fb61120e",
+  "_type": "post",
+  "_updatedAt": "2025-01-17T13:44:05Z",
+  "body": [
+    {
+      "_key": "aba42a503204",
+      "_type": "myblock",
+      "children": [
+        {
+          "_key": "e8799f8c0f9e",
+          "_type": "span",
+          "marks": [],
+          "text": "The Post Body"
+        }
+      ],
+      "markDefs": [],
+      "style": "h2"
+    }
+  ]
+}
+```
+
+You should then configure the plugin to correctly handle fields of type `myrichtext` as follows:
+
+```typescript
+tosPlugin(S, {
+  // ...
+  customBlockTypes: ['myblock'],
+})
+```
+
+### Links
+
+The plugin supports links in the rich text content with arbitrary metadata. The metadata is not sent to translation but preserved.
+
+Here follows a sample of supported link definition:
+
+```typescript
+export default defineType({
+  name: 'blockContent',
+  title: 'Block Content',
+  type: 'array',
+  of: [
+    defineArrayMember({
+      title: 'Block',
+      type: 'block',
+      // ...
+      marks: {
+        decorators: [
+          // ...
+        ],
+        annotations: [
+          {
+            name: 'link',
+            title: 'Complex Link',
+            type: 'object',
+            fields: [
+              {
+                name: 'title',
+                title: 'Title',
+                type: 'string',
+              },
+              {
+                name: 'external',
+                title: 'External Link',
+                type: 'url',
+              },
+              {
+                name: 'author',
+                title: 'Author',
+                type: 'reference',
+                to: [{type: 'author'}]
+              },
+              {
+                name: 'newTab',
+                title: 'Open in new tab',
+                type: 'boolean',
+                initialValue: false,
+                description: 'Set to true to open the link in a new tab.',
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  ],
+})
+```

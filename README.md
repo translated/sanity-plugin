@@ -134,6 +134,7 @@ possible combinations here are the supported block features:
 ### Custom block types
 
 If you redefine the rich text type in your schema, you'll have to specify the custom block type names in the plugin configuration.
+More specifically if you define a `name` for the block array elements, you should add those names to the `customBlockTypes` option.
 
 For example, if you have the following rich text type definition:
 
@@ -144,7 +145,7 @@ export default defineType({
   type: 'array',
   of: [
     defineArrayMember({
-      name: 'myblock',
+      name: 'myblock', // <--- custom block type name
       title: 'My Block',
       type: 'block',
       styles: [
@@ -163,7 +164,7 @@ export default defineType({
 
 Fields of type `myrichtext` will have the following structure in JSON:
 
-```json
+```javascript
 {
   "_createdAt": "2025-01-16T13:48:35Z",
   "_id": "drafts.cc28b1ec-8340-41ae-a820-3cd3e4f6038c",
@@ -173,7 +174,7 @@ Fields of type `myrichtext` will have the following structure in JSON:
   "body": [
     {
       "_key": "aba42a503204",
-      "_type": "myblock",
+      "_type": "myblock", // <--- custom block type name
       "children": [
         {
           "_key": "e8799f8c0f9e",
@@ -189,7 +190,7 @@ Fields of type `myrichtext` will have the following structure in JSON:
 }
 ```
 
-You should then configure the plugin to correctly handle fields of type `myrichtext` as follows:
+You should then configure the plugin to correctly handle fields of type `myrichtext` with their `myblock` elements as follows:
 
 ```typescript
 tosPlugin(S, {

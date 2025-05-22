@@ -5,6 +5,14 @@ A **Sanity Studio v3** plugin for translating Sanity documents using the Transla
 Please note that this plugin requires
 the [Sanity document-internationalization plugin](https://www.sanity.io/plugins/document-internationalization).
 
+The plugin offers two main features that can be used independently:
+
+- **Single document translation**: it allows you to send a single document to the TranslationOS API for translation.
+- **Bulk document translation**: it allows you to send multiple documents to the TranslationOS API for translation.
+
+The plugin can be used within the _Structure Tool_ for the single document translation and as a top-level _tool_ for the bulk
+document translation.
+
 ## Installation
 
 Add the plugin as a dependency in your Sanity Studio project by running:
@@ -15,10 +23,11 @@ npm install sanity-plugin-tos
 
 ## Configuration
 
-Add it as a plugin in your `sanity.config.ts` (or `.js`).
+Add it in your `sanity.config.ts` (or `.js`).
 
-The following configuration example shows how to add the plugin and share the list of languages and the active document types with
-the document internationalization plugin. It is recommended that the language identifiers are taken from
+The following configuration example shows how to add the plugin both in the structure tool and as a top level tool. It also shows
+how to share the list of languages and the active document types with the document internationalization plugin.
+It is recommended that the language identifiers are taken from
 the [list of TOS supported languages](https://api.translated.com/v2/symbol/languages).
 Use of non-supported language identifiers is possible but must be agreed with Translated in advance.
 
@@ -27,6 +36,7 @@ import {defineConfig} from 'sanity'
 import {StructureBuilder} from "sanity/structure";
 import {tosPlugin} from 'sanity-plugin-tos'
 
+// languages and document types shared with the document internationalization plugin
 const languages = [
   {id: 'en-US', title: 'English'},
   {id: 'fr-FR', title: 'French'},
@@ -34,6 +44,14 @@ const languages = [
   {id: 'es-ES', title: 'Spanish'},
 ];
 const documentTypes = ['post', 'author']
+
+// common configuration for the TOS plugin
+const tosCommonConfig = {
+  apiKey: 'YOUR_TOS_API_KEY',
+  env: 'staging',
+  supportedLanguages: languages,
+  customBlockTypes: ['myblock'],
+}
 
 export default defineConfig({
   //... other configuration
@@ -49,23 +67,28 @@ export default defineConfig({
         if (documentTypes.includes(schemaType)) {
           return S.document().views([
             S.view.form(),
-            tosPlugin(S, {
-              env: 'staging',
-              apiKey: 'TOS_API_KEY',
-              supportedLanguages: languages,
-              customBlockTypes: ['myblock'],
-            })
+            // plugin view for single document translation
+            tosPlugin(S, tosCommonConfig)
           ])
         }
       }
     }),
     //... other plugins
   ],
+
+  // plugin top level tool for bulk document translation
+  tools: [
+    translationOS({
+      ...tosCommonConfig,
+      schemaTypes: documentTypes,
+    })
+  ],
+
 })
 ```
 
 The `tosPlugin` function returns a `ComponentViewBuilder` that should be added to the _editor views_ for specific document types.
-It is of course **highly recommended** to add the view only to the document types that have been configured in the document
+It is, of course, **highly recommended** to add the view only to the document types that have been configured in the document
 internationalization plugin.
 The function takes the following options:
 
@@ -73,8 +96,26 @@ The function takes the following options:
 - `apiKey` - your API key for the above TOS API environment
 - `supportedLanguages` - the list of languages to be supported by the TOS plugin, the array has the same structure of the one used
   in the document internationalization plugin.
-- `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block` type (see
+- `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block`
+  type (see
   below for details).
+
+The `translationOS` function should be included in the _tools_ section.
+It is, of course, **highly recommended** to activate the tool only on document types that have been configured in the document
+internationalization plugin.
+The function takes the following options:
+
+- `env` - the environment of the TOS API, either `staging`, `sandbox` or `production`
+- `apiKey` - your API key for the above TOS API environment
+- `supportedLanguages` - the list of languages to be supported by the TOS plugin, the array has the same structure of the one used
+  in the document internationalization plugin.
+- `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block`
+  type (see
+  below for details).
+- `schemaTypes` - the array of document types that will be managed by the tool (recommended to be the same as the ones managed by
+  the document internationalization plugin).
+
+The configuration example above shows how to use the common configuration options for both the plugin and the tool.
 
 ## TOS plugin options in Sanity Studio's schema
 
@@ -123,7 +164,7 @@ To offer translators a better context, the plugin will send the rich text fields
 into HTML where each object generally corresponds to a structural unit (paragraph, heading, list item, etc.).
 
 The block type is highly customizable and can be redefined in the project schema in multiple ways. As we cannot support all the
-possible combinations here are the supported block features:
+possible combinations, here are the supported block features:
 
 - bold, italic, underline, strikethrough and code spans
 - headings and blockquote styles
@@ -134,7 +175,8 @@ possible combinations here are the supported block features:
 ### Custom block types
 
 If you redefine the rich text type in your schema, you'll have to specify the custom block type names in the plugin configuration.
-More specifically if you define a `name` for the block array elements, you should add those names to the `customBlockTypes` option.
+More specifically if you define a `name` for the block array elements, you should add those names to the `customBlockTypes`
+option.
 
 For example, if you have the following rich text type definition:
 
@@ -154,7 +196,7 @@ export default defineType({
       ],
       marks: {
         decorators: [
-            {title: 'Code', value: 'code'}
+          {title: 'Code', value: 'code'}
         ],
       },
     }),
@@ -164,7 +206,7 @@ export default defineType({
 
 Fields of type `myrichtext` will have the following structure in JSON:
 
-```javascript
+```json5
 {
   "_createdAt": "2025-01-16T13:48:35Z",
   "_id": "drafts.cc28b1ec-8340-41ae-a820-3cd3e4f6038c",
@@ -174,7 +216,8 @@ Fields of type `myrichtext` will have the following structure in JSON:
   "body": [
     {
       "_key": "aba42a503204",
-      "_type": "myblock", // <--- custom block type name
+      "_type": "myblock",
+      // <--- custom block type name
       "children": [
         {
           "_key": "e8799f8c0f9e",
@@ -203,7 +246,7 @@ tosPlugin(S, {
 
 The plugin supports links in the rich text content with arbitrary metadata. The metadata is not sent to translation but preserved.
 
-Here follows a sample of supported link definition:
+Here follows a sample of the supported link definition:
 
 ```typescript
 export default defineType({

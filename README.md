@@ -3,11 +3,13 @@
 A **Sanity Studio v3** plugin for translating Sanity documents using the TranslationOS API.
 
 Please note that this plugin requires
-the [Sanity document-internationalization plugin](https://www.sanity.io/plugins/document-internationalization).
+the [Sanity document-internationalization plugin](https://www.sanity.io/plugins/document-internationalization) or the [Sanity internationalized-array plugin](https://github.com/sanity-io/sanity-plugin-internationalized-array).
 
 The plugin offers two main features that can be used independently:
 
 - **Single document translation**: it allows you to send a single document to the TranslationOS API for translation.
+- **Field-level translation**: it allows you to translate specific fields of a document, such as `string`, `text` and `block`.
+  The plugin will also handle the rich text content and the custom block types.
 - **Bulk document translation**: it allows you to send multiple documents to the TranslationOS API for translation.
 
 The plugin can be used within the _Structure Tool_ for the single document translation and as a top-level _tool_ for the bulk
@@ -30,11 +32,13 @@ how to share the list of languages and the active document types with the docume
 It is recommended that the language identifiers are taken from
 the [list of TOS supported languages](https://api.translated.com/v2/symbol/languages).
 Use of non-supported language identifiers is possible but must be agreed with Translated in advance.
+It shows also the use of the `internationalizedArray` plugin to handle the translation of fields of type `string`, `text` and `block` (and `customBlocks` as described in the right section below).
 
 ```typescript
 import {defineConfig} from 'sanity'
 import {StructureBuilder} from "sanity/structure";
 import {tosPlugin} from 'sanity-plugin-tos'
+import {internationalizedArray} from 'sanity-plugin-internationalized-array'
 
 // languages and document types shared with the document internationalization plugin
 const languages = [
@@ -44,6 +48,7 @@ const languages = [
   {id: 'es-ES', title: 'Spanish'},
 ];
 const documentTypes = ['post', 'author']
+const fieldTypes = ['blog']
 
 // common configuration for the TOS plugin
 const tosCommonConfig = {
@@ -64,14 +69,24 @@ export default defineConfig({
     }),
     structureTool({
       defaultDocumentNode: (S: StructureBuilder, {schemaType}: DefaultDocumentNodeContext) => {
-        if (documentTypes.includes(schemaType)) {
+        if ([...documentTypes, ...fieldTypes].includes(schemaType)) {
           return S.document().views([
             S.view.form(),
             // plugin view for single document translation
-            tosPlugin(S, tosCommonConfig)
+            tosPlugin(S, {
+              ...tosCommonConfig,
+              // document types that will activate the plugin in document-translation mode
+              documentLocalizationSchemaTypes: documentTypes,
+              // document types that will activate the plugin in field-translation mode
+              fieldLocalizationSchemaTypes: fieldTypes,
+            })
           ])
         }
       }
+    }),
+    internationalizedArray({
+      languages,
+      fieldTypes: ['string', 'text', 'blockContent'],
     }),
     //... other plugins
   ],
@@ -109,6 +124,11 @@ The function takes the following options:
 - `apiKey` - your API key for the above TOS API environment
 - `supportedLanguages` - the list of languages to be supported by the TOS plugin, the array has the same structure of the one used
   in the document internationalization plugin.
+- `documentLocalizationSchemaTypes` - an optional array of document types that will activate the plugin in the
+  _single document translation_ mode (recommended to be the same as the ones managed by the document internationalization plugin).
+- `fieldLocalizationSchemaTypes` - an optional array of document types that will activate the plugin in the
+  _field translation_ mode (recommended to be the same as the ones managed by the internationalizedArray plugin).
+- `languages` - an optional array of language identifiers that will be
 - `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block`
   type (see
   below for details).
@@ -116,6 +136,19 @@ The function takes the following options:
   the document internationalization plugin).
 
 The configuration example above shows how to use the common configuration options for both the plugin and the tool.
+
+## Known limitations
+The TOS plugin can be activated in two different modes, depending on the document type: the document translation mode and the field translation mode.
+The document translation mode is activated when the document type is included in the `documentLocalizationSchemaTypes` option.
+The field translation mode is activated when the document type is included in the `fieldLocalizationSchemaTypes` option.
+The plugin will automatically detect the mode based on the document type and will adapt its behavior.
+
+**The same type can't be included in both options, otherwise the plugin will throw an error.**
+
+Currently, for the field translation mode, the plugin supports only the the default common field types (like `string`, `block`, `text`).
+Deep nested fields of type `object` are still supported, but the plugin will not traverse the `array` fields to find recursive
+`string`, `text` or `block` fields.
+
 
 ## TOS plugin options in Sanity Studio's schema
 

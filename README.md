@@ -82,7 +82,7 @@ export default defineConfig({
                             // document types that will be handled in document-translation mode
                             documentLocalizationSchemaTypes: documentLevelTypes,
                             // document types that will be handled in field-translation mode
-                            fieldLocalizationSchemaTypes: fieldTypes,
+                            fieldLocalizationSchemaTypes: fieldLevelTypes,
                         })
                     ])
                 }

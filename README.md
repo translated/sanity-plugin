@@ -3,14 +3,15 @@
 A **Sanity Studio v3** plugin for translating Sanity documents using the TranslationOS API.
 
 Please note that this plugin requires
-the [Sanity document-internationalization plugin](https://www.sanity.io/plugins/document-internationalization) or the [Sanity internationalized-array plugin](https://github.com/sanity-io/sanity-plugin-internationalized-array).
+the [Sanity document-internationalization plugin](https://www.sanity.io/plugins/document-internationalization) or
+the [Sanity field-level-internationalization plugin](https://github.com/sanity-io/sanity-plugin-internationalized-array).
 
 The plugin offers two main features that can be used independently:
 
-- **Single document translation**: it allows you to send a single document to the TranslationOS API for translation.
-- **Field-level translation**: it allows you to translate specific fields of a document, such as `string`, `text` and `block`.
-  The plugin will also handle the rich text content and the custom block types.
-- **Bulk document translation**: it allows you to send multiple documents to the TranslationOS API for translation.
+- **Single document translation**: it allows you to send a single document to the TranslationOS API for translation. Both the
+  document level and field level localization approaches are supported in this mode.
+- **Bulk document translation**: it allows you to send multiple documents to the TranslationOS API for translation. Only the
+  document level localization approach is supported in this mode.
 
 The plugin can be used within the _Structure Tool_ for the single document translation and as a top-level _tool_ for the bulk
 document translation.
@@ -28,11 +29,13 @@ npm install sanity-plugin-tos
 Add it in your `sanity.config.ts` (or `.js`).
 
 The following configuration example shows how to add the plugin both in the structure tool and as a top level tool. It also shows
-how to share the list of languages and the active document types with the document internationalization plugin.
+how to share the list of languages and the active document types with the document internationalization plugin and with the field
+internationalization plugin.
+Moreover, it shows how to configure the `internationalizedArray` plugin to handle the translation of fields of type `string`,
+`text` and `block` (and `customBlocks` as described in the right section below).
 It is recommended that the language identifiers are taken from
 the [list of TOS supported languages](https://api.translated.com/v2/symbol/languages).
 Use of non-supported language identifiers is possible but must be agreed with Translated in advance.
-It shows also the use of the `internationalizedArray` plugin to handle the translation of fields of type `string`, `text` and `block` (and `customBlocks` as described in the right section below).
 
 ```typescript
 import {defineConfig} from 'sanity'
@@ -40,80 +43,87 @@ import {StructureBuilder} from "sanity/structure";
 import {tosPlugin} from 'sanity-plugin-tos'
 import {internationalizedArray} from 'sanity-plugin-internationalized-array'
 
-// languages and document types shared with the document internationalization plugin
+// languages are shared among the Sanity internationalization plugins and the TOS plugin
 const languages = [
-  {id: 'en-US', title: 'English'},
-  {id: 'fr-FR', title: 'French'},
-  {id: 'de-DE', title: 'German'},
-  {id: 'es-ES', title: 'Spanish'},
+    {id: 'en-US', title: 'English'},
+    {id: 'fr-FR', title: 'French'},
+    {id: 'de-DE', title: 'German'},
+    {id: 'es-ES', title: 'Spanish'},
 ];
-const documentTypes = ['post', 'author']
-const fieldTypes = ['blog']
+// define the schema types to be handled at document and field level by the TOS plugin
+const documentLevelTypes = ['post', 'author']
+const fieldLevelTypes = ['blog']
 
 // common configuration for the TOS plugin
 const tosCommonConfig = {
-  apiKey: 'YOUR_TOS_API_KEY',
-  env: 'staging',
-  supportedLanguages: languages,
-  customBlockTypes: ['myblock'],
+    apiKey: 'YOUR_TOS_API_KEY',
+    env: 'staging',
+    supportedLanguages: languages,
+    customBlockTypes: ['myblock'],
 }
 
 export default defineConfig({
-  //... other configuration
-  plugins: [
-    // ... other plugins
-    documentInternationalization({
-      supportedLanguages: languages,
-      schemaTypes: documentTypes,
-      weakReferences: true,
-    }),
-    structureTool({
-      defaultDocumentNode: (S: StructureBuilder, {schemaType}: DefaultDocumentNodeContext) => {
-        if ([...documentTypes, ...fieldTypes].includes(schemaType)) {
-          return S.document().views([
-            S.view.form(),
-            // plugin view for single document translation
-            tosPlugin(S, {
-              ...tosCommonConfig,
-              // document types that will activate the plugin in document-translation mode
-              documentLocalizationSchemaTypes: documentTypes,
-              // document types that will activate the plugin in field-translation mode
-              fieldLocalizationSchemaTypes: fieldTypes,
-            })
-          ])
-        }
-      }
-    }),
-    internationalizedArray({
-      languages,
-      fieldTypes: ['string', 'text', 'blockContent'],
-    }),
-    //... other plugins
-  ],
+    //... other configuration
+    plugins: [
+        // ... other plugins
+        documentInternationalization({
+            supportedLanguages: languages,
+            schemaTypes: documentLevelTypes,
+            weakReferences: true,
+        }),
+        structureTool({
+            defaultDocumentNode: (S: StructureBuilder, {schemaType}: DefaultDocumentNodeContext) => {
+                if ([...documentLevelTypes, ...fieldLevelTypes].includes(schemaType)) {
+                    return S.document().views([
+                        S.view.form(),
+                        // plugin view for single document translation
+                        tosPlugin(S, {
+                            ...tosCommonConfig,
+                            // document types that will be handled in document-translation mode
+                            documentLocalizationSchemaTypes: documentLevelTypes,
+                            // document types that will be handled in field-translation mode
+                            fieldLocalizationSchemaTypes: fieldTypes,
+                        })
+                    ])
+                }
+            }
+        }),
+        internationalizedArray({
+            languages,
+            fieldTypes: ['string', 'text', 'block'],
+        }),
+        //... other plugins
+    ],
 
-  // plugin top level tool for bulk document translation
-  tools: [
-    translationOS({
-      ...tosCommonConfig,
-      schemaTypes: documentTypes,
-    })
-  ],
+    // plugin top level tool for bulk document translation
+    tools: [
+        translationOS({
+            ...tosCommonConfig,
+            schemaTypes: documentLevelTypes,
+        })
+    ],
 
 })
 ```
 
 The `tosPlugin` function returns a `ComponentViewBuilder` that should be added to the _editor views_ for specific document types.
-It is, of course, **highly recommended** to add the view only to the document types that have been configured in the document
-internationalization plugin.
+It is, of course, **highly recommended** to add the view only to the document types that have been configured in the
+document-level and field-level internationalization plugins.
 The function takes the following options:
 
 - `env` - the environment of the TOS API, either `staging`, `sandbox` or `production`
 - `apiKey` - your API key for the above TOS API environment
 - `supportedLanguages` - the list of languages to be supported by the TOS plugin, the array has the same structure of the one used
   in the document internationalization plugin.
+- `documentLocalizationSchemaTypes` - an optional array of document schema types that will be handled in the _document
+  translation_ mode (recommended to be the same as the ones managed by the document internationalization plugin).
+- `fieldLocalizationSchemaTypes` - an optional array of document schema types that will be handled in the _field translation_ mode
+  (recommended to be the same as the ones managed by the field-level internationalization plugin).
 - `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block`
-  type (see
-  below for details).
+  type (see below for details).
+
+**The same schema type can't be included in both `documentLocalizationSchemaTypes` and `fieldLocalizationSchemaTypes` options,
+otherwise the plugin will display a configuration error and won't be able to work properly.**
 
 The `translationOS` function should be included in the _tools_ section.
 It is, of course, **highly recommended** to activate the tool only on document types that have been configured in the document
@@ -124,28 +134,17 @@ The function takes the following options:
 - `apiKey` - your API key for the above TOS API environment
 - `supportedLanguages` - the list of languages to be supported by the TOS plugin, the array has the same structure of the one used
   in the document internationalization plugin.
-- `documentLocalizationSchemaTypes` - an optional array of document types that will activate the plugin in the
-  _single document translation_ mode (recommended to be the same as the ones managed by the document internationalization plugin).
-- `fieldLocalizationSchemaTypes` - an optional array of document types that will activate the plugin in the
-  _field translation_ mode (recommended to be the same as the ones managed by the internationalizedArray plugin).
-- `languages` - an optional array of language identifiers that will be
 - `customBlockTypes` - an optional array of type names that should be treated by the plugin like the standard Sanity `block`
-  type (see
-  below for details).
-- `schemaTypes` - the array of document types that will be managed by the tool (recommended to be the same as the ones managed by
-  the document internationalization plugin).
+  type (see below for details).
+- `schemaTypes` - the array of document schemas that will be managed by the tool (recommended to be the same as the ones managed
+  by the document internationalization plugin).
 
 The configuration example above shows how to use the common configuration options for both the plugin and the tool.
 
 ## Known limitations
-The TOS plugin can be activated in two different modes, depending on the document type: the document translation mode and the field translation mode.
-The document translation mode is activated when the document type is included in the `documentLocalizationSchemaTypes` option.
-The field translation mode is activated when the document type is included in the `fieldLocalizationSchemaTypes` option.
-The plugin will automatically detect the mode based on the document type and will adapt its behavior.
 
-**The same type can't be included in both options, otherwise the plugin will throw an error.**
-
-Currently, for the field translation mode, the plugin supports only the the default common field types (like `string`, `block`, `text`).
+Currently, for the field translation mode, the plugin supports only the most common field types (like `string`, `block`,
+`text`).
 Deep nested fields of type `object` are still supported, but the plugin will not traverse the `array` fields to find recursive
 `string`, `text` or `block` fields.
 
@@ -175,7 +174,7 @@ defineField({
 Note that the `tosProperties` block can be added to any field type, including `object`. By adding it to an `object` field, all the
 fields inside the object will be excluded from translation.
 
-## What is translated by default
+## What is translated by default in document level mode
 
 The plugin will send to translation all document fields of type `string`, `text`, `slug` or `block`.
 

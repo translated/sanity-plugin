@@ -293,3 +293,13 @@ export default defineType({
   ],
 })
 ```
+# Migration from older versions to v5
+If you are migrating from version 4 or older to version 5 of the `sanity-plugin-tos`, please note the following.
+For a better user experience, security issues and management of the TOS API key, we built a new configuration page that will automatically popup once you update to v5.
+This new configuration page requires you to slightly change your TOS plugin configuration. Please follow the steps below:
+
+- Remove the `apiKey` and `env` options from your TOS plugin configuration in `sanity.config.ts` or `sanity.config.js`, both from the `tosPlugin` or the `translationOS` tool.
+- Start your Sanity Studio, the TOS configuration page should popup automatically.
+- Fill in the required fields (TOS API key, environment) and save the configuration.
+
+The configuration will be saved in your Sanity Studio dataset as a document of type `translationOSSettings`, and the plugin will use this configuration from now on.

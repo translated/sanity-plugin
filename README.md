@@ -49,8 +49,6 @@ const fieldLevelTypes = ['blog']
 
 // Common TranslationOS configuration
 const tosCommonConfig = {
-    apiKey: 'YOUR_TOS_API_KEY',
-    env: 'staging',
     supportedLanguages: languages,
     customBlockTypes: ['myblock'],
 }
@@ -105,8 +103,6 @@ Returns a `ComponentViewBuilder` to be added to the _editor views_ for specific 
 **Recommended**: only enable for schema types configured in your internationalization plugin.
 
 Options:
-- `env` – TranslationOS API environment (`staging`, `sandbox` or `production`)
-- `apiKey` – TranslationOS API key for the above environment
 - `supportedLanguages` – array of `{id, title}` language objects
 - `documentLocalizationSchemaTypes` – document types for document-level translation
 - `fieldLocalizationSchemaTypes` – document types for field-level translation
@@ -125,6 +121,18 @@ Options:
 - `supportedLanguages` – array of `{id, title}` language objects
 - `customBlockTypes` – additional block type names to treat like Sanity's `block`
 - `schemaTypes` – document types to manage with bulk translation
+
+## Authentication 
+The plugin requires a TranslationOS API key to function. This API key will be stored securely in your Sanity dataset.
+When you first use the plugin, you will be prompted to enter your API key and select the environment (`sandbox`, or `production`).
+
+### {{insert image}}
+
+## Reset authentication
+Please note that the authentication configuration can be changed only be a Studio admin user.
+
+### {{insert image}}
+
 
 ## Known limitations
 

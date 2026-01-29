@@ -11,7 +11,8 @@ The TranslationOS plugin for Sanity offers two independent translation modes:
 - **Single document translation**: Sends a single document to the TranslationOS API for translation. Supports both document-level and field-level localization.
 - **Bulk document translation**: Sends multiple documents to the TranslationOS API for translation. Supports **document-level** localization only.
 
-Single document translation is available within the [Structure tool](https://www.sanity.io/docs/studio/structure-tool). Bulk document translation is available as a top-level tool.
+Single document translation is available within the [Structure tool](https://www.sanity.io/docs/studio/structure-tool).
+Bulk document translation is available as a top-level tool.
 
 ## Installation
 
@@ -113,6 +114,8 @@ otherwise the plugin will display a configuration error and won't work properly.
 
 ### `translationOS` (bulk document translation tool)
 
+Returns a tool to be added to the top-level _tools_ array in your Sanity configuration.
+
 **Recommended**: only enable for schema types configured in the document internationalization plugin.
 
 Options:
@@ -123,15 +126,26 @@ Options:
 - `schemaTypes` – document types to manage with bulk translation
 
 ## Authentication 
-The plugin requires a TranslationOS API key to function. This API key will be stored securely in your Sanity dataset.
-When you first use the plugin, you will be prompted to enter your API key and select the environment (`sandbox`, or `production`).
 
-### {{insert image}}
+### Initial setup
+The plugin requires a _TranslationOS API key_ to function. This API key will be stored securely in your Sanity dataset.
+When you first use the plugin, by clicking on the _TranslationOS_ editor tab, you will be prompted to enter your API key and select the environment (`sandbox` or `production`).
 
-## Reset authentication
-Please note that the authentication configuration can be changed only be a Studio admin user.
+**NOTE:** the authentication setup can be performed only by a Studio user with **admin privileges**.
 
-### {{insert image}}
+![TOS authentication configuration](img/auth-setup.png)
+
+Non-admin users will see a warning message requesting them to contact their Sanity administrator.
+
+![TOS authentication warning](img/auth-warning.png)
+
+### Reset
+
+If you need to change your API key or environment, you can reset the plugin configuration by clicking on the _Reset credentials_ menu item in the settings menu. The settings menu is accessible by clicking on the _cog_ button near the version badge in the top-right corner of the _TranslationOS_ editor tab.
+
+**NOTE:** after resetting the authentication configuration, the plugin will display the setup screen again **for admin users** and the warning message for non-admin users.
+
+![TOS authentication reset](img/auth-reset.png)
 
 
 ## Known limitations
@@ -141,7 +155,7 @@ For field translation mode:
 - Supports nested `object` fields
 - Does **not** traverse `array` fields to locate nested translatable fields
 
-## Field-level options in schema
+### Field-level options in schema
 
 You can add `tosProperties` to any field to control translation behavior.
 
@@ -160,7 +174,7 @@ defineField({
 
 Adding `tosProperties.exclude: true` to an `object` field excludes all nested fields.
 
-## Default behavior in document-level mode
+### Default behavior in document-level mode
 
 By default, the plugin translates:
 - All fields of type `string`, `text`, `slug`, `block`
@@ -168,7 +182,7 @@ By default, the plugin translates:
 - Excludes Sanity metadata (`_id`, `_rev`, `_type`, `createdAt`, etc.)
 - Excludes fields with `tosProperties.exclude: true`
 
-## Rich text (block content) support
+### Rich text (block content) support
 
 Sanity's `block` type represents rich text as an array of [objects](https://www.sanity.io/docs/block-type). The plugin converts these to HTML before sending to TranslationOS, preserving structure and context. Supported features include:
 - Bold, italic, underline, strikethrough, code spans
@@ -177,7 +191,7 @@ Sanity's `block` type represents rich text as an array of [objects](https://www.
 - Image references
 - Links with metadata (metadata preserved, not translated)
 
-## Custom block types
+### Custom block types
 
 If you define custom block names in your schema, list them in `customBlockTypes` so the plugin can process them correctly.
 
@@ -244,7 +258,7 @@ tosPlugin(S, {
 })
 ```
 
-## Link handling
+### Link handling
 
 The plugin supports links with arbitrary metadata inside rich text. Metadata is preserved but not translated.
 
@@ -301,13 +315,17 @@ export default defineType({
   ],
 })
 ```
-# Migration from older versions to v5
-If you are migrating from version 4 or older to version 5 of the `sanity-plugin-tos`, please note the following.
-For a better user experience, security issues and management of the TOS API key, we built a new configuration page that will automatically popup once you update to v5.
-This new configuration page requires you to slightly change your TOS plugin configuration. Please follow the steps below:
+## Migration from older versions to version 5.x
+
+If you are migrating from version 4.x or below to version 5.x of the `sanity-plugin-tos`, please note the following.
+In version 5.x, the plugin changes how it manages the TOS API key. Once you update to v5, the process mentioned in the
+**Authentication** section above will have to be followed.
+The plugin also requires you to slightly change your previous configuration.
+Please follow the steps below:
 
 - Remove the `apiKey` and `env` options from your TOS plugin configuration in `sanity.config.ts` or `sanity.config.js`, both from the `tosPlugin` or the `translationOS` tool.
-- Start your Sanity Studio, the TOS configuration page should popup automatically.
+- Start your Sanity Studio, the TOS configuration page should pop up automatically.
 - Fill in the required fields (TOS API key, environment) and save the configuration.
 
-The configuration will be saved in your Sanity Studio dataset as a document of type `translationOSSettings`, and the plugin will use this configuration from now on.
+The authentication information will be saved in your Sanity Studio dataset as a document of type `translationOSSettings`, and the
+plugin will use this configuration from then on.

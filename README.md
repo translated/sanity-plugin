@@ -97,6 +97,7 @@ export default defineConfig({
 ```
 
 ## Plugin options
+
 ### `tosPlugin` (single document translation view)
 
 Returns a `ComponentViewBuilder` to be added to the _editor views_ for specific document types.
@@ -104,6 +105,7 @@ Returns a `ComponentViewBuilder` to be added to the _editor views_ for specific 
 **Recommended**: only enable for schema types configured in your internationalization plugin.
 
 Options:
+
 - `supportedLanguages` – array of `{id, title}` language objects
 - `documentLocalizationSchemaTypes` – document types for document-level translation
 - `fieldLocalizationSchemaTypes` – document types for field-level translation
@@ -119,15 +121,15 @@ Returns a tool to be added to the top-level _tools_ array in your Sanity configu
 **Recommended**: only enable for schema types configured in the document internationalization plugin.
 
 Options:
-- `env` – TranslationOS API environment (`staging`, `sandbox` or `production`)
-- `apiKey` – TranslationOS API key for the above environment
+
 - `supportedLanguages` – array of `{id, title}` language objects
 - `customBlockTypes` – additional block type names to treat like Sanity's `block`
 - `schemaTypes` – document types to manage with bulk translation
 
-## Authentication 
+## Authentication
 
 ### Initial setup
+
 The plugin requires a _TranslationOS API key_ to function. This API key will be stored securely in your Sanity dataset.
 When you first use the plugin, by clicking on the _TranslationOS_ editor tab, you will be prompted to enter your API key and select the environment (`sandbox` or `production`).
 
@@ -147,13 +149,36 @@ If you need to change your API key or environment, you can reset the plugin conf
 
 ![TOS authentication reset](img/auth-reset.png)
 
-
 ## Known limitations
 
 For field translation mode:
+
 - Supports common types: `string`, `text`, `block`
 - Supports nested `object` fields
 - Does **not** traverse `array` fields to locate nested translatable fields
+
+For rich text (block content):
+
+- **Inline objects** (objects placed inside a line of text, among the spans of a block) are not supported: they are not sent for translation and are removed from the translated content.
+- Every text field of an [object inside rich text](#objects-inside-rich-text) is translated, including values such as code or option values (e.g. `tone: "warning"`). Exclude them with [`tosProperties.exclude`](#field-level-options-in-schema).
+
+### Unsupported fields
+
+Fields whose content cannot be translated safely are **skipped** and keep their source-language content in the translated document. Before sending, the plugin lists them with their path and the reason:
+
+- in the single document view, in a warning below the **Submit order** button;
+- in the bulk tool, in a warning shown on the first click on **Place order**: click again to send the order without those fields.
+
+Examples:
+
+| Message | Reason |
+| --- | --- |
+| `body.2 (codeSnippet without _key)` | An object inside rich text has no `_key`, so it can't be restored after translation. The whole `body` field is skipped |
+| `body.3 (object without _type)` | An item inside rich text has no `_type`. The whole `body` field is skipped |
+| `ratings (array of number)` | Arrays of numbers (or of other non-text values) are not translatable |
+| `gallery (mixed array)` | Arrays mixing texts, objects and other values are not translatable |
+
+In the bulk tool each entry is prefixed with the document ID, e.g. `article-1: body.2 (codeSnippet without _key)`.
 
 ### Field-level options in schema
 
@@ -174,22 +199,91 @@ defineField({
 
 Adding `tosProperties.exclude: true` to an `object` field excludes all nested fields.
 
+`tosProperties.exclude` works on the fields of [objects inside rich text](#objects-inside-rich-text) too: excluded fields are not sent and keep their original value in the translated document.
+
 ### Default behavior in document-level mode
 
 By default, the plugin translates:
+
 - All fields of type `string`, `text`, `slug`, `block`
 - Nested fields within `array` or `object` values (recursively)
+- Text fields of any object inside rich text (images, code snippets, embeds, ...), see [Objects inside rich text](#objects-inside-rich-text)
 - Excludes Sanity metadata (`_id`, `_rev`, `_type`, `createdAt`, etc.)
+- Excludes numbers, URLs, references, image assets and fields of type `number`, `datetime`, `reference` and `image`
 - Excludes fields with `tosProperties.exclude: true`
 
 ### Rich text (block content) support
 
 Sanity's `block` type represents rich text as an array of [objects](https://www.sanity.io/docs/block-type). The plugin converts these to HTML before sending to TranslationOS, preserving structure and context. Supported features include:
+
 - Bold, italic, underline, strikethrough, code spans
 - Headings, blockquotes
 - Bullet and numbered lists
-- Image references
+- Images and any other object inside the rich text, with their text fields translated (see [Objects inside rich text](#objects-inside-rich-text))
 - Links with metadata (metadata preserved, not translated)
+
+### Objects inside rich text
+
+Rich text fields can contain any kind of object between their blocks: images, code snippets, video embeds, callouts, tables, custom objects, ...
+
+For each of these objects:
+
+- the object is kept **exactly as in the source document**: type, asset, crop and hotspot of images, references, numbers, booleans, URLs and any other field;
+- only its **text fields** are translated, including those of nested objects and arrays and nested rich text (e.g. the content of a callout, with its own objects).
+
+The following values are not translated: fields starting with `_`, references, numbers and numeric strings, URLs, empty strings.
+
+Example: with the following schema, `alt` and `caption` of images and `title` and `content` of callouts are translated, while the image itself and the callout `tone` are kept as they are.
+
+```typescript
+export default defineType({
+  name: 'blockContent',
+  title: 'Block Content',
+  type: 'array',
+  of: [
+    defineArrayMember({type: 'block'}),
+    defineArrayMember({
+      type: 'image',
+      options: {hotspot: true},
+      fields: [
+        {name: 'alt', title: 'Alternative text', type: 'string'},
+        {name: 'caption', title: 'Caption', type: 'string'},
+      ],
+    }),
+    defineArrayMember({
+      name: 'callout',
+      title: 'Callout',
+      type: 'object',
+      fields: [
+        {
+          name: 'tone',
+          title: 'Tone',
+          type: 'string',
+          options: {
+            list: ['info', 'warning'],
+            tosProperties: {exclude: true}, // <--- option value, must not be translated
+          },
+        },
+        {name: 'title', title: 'Title', type: 'string'},
+        {name: 'content', title: 'Content', type: 'array', of: [{type: 'block'}, {type: 'image'}]},
+      ],
+    }),
+    defineArrayMember({
+      name: 'codeSnippet',
+      title: 'Code snippet',
+      type: 'object',
+      fields: [
+        {name: 'code', title: 'Code', type: 'text', options: {tosProperties: {exclude: true}}}, // <--- code, must not be translated
+        {name: 'description', title: 'Description', type: 'string'},
+      ],
+    }),
+  ],
+})
+```
+
+> **Note:** Every text field of these objects is translated unless excluded: remember to add `tosProperties.exclude: true` to fields such as code, identifiers or option values.
+
+Objects are matched with the source document by their `_key`, which Sanity always adds to array items. Items without a `_key` (e.g. imported with a script) can't be restored, so the whole field is skipped and reported as [unsupported](#unsupported-fields).
 
 ### Custom block types
 
@@ -315,6 +409,7 @@ export default defineType({
   ],
 })
 ```
+
 ## Migration from older versions to version 5.x
 
 If you are migrating from version 4.x or below to version 5.x of the `sanity-plugin-tos`, please note the following.
